@@ -1,3 +1,5 @@
+import sys
+sys.path.append('.')
 # Copyright (c) Opendatalab. All rights reserved.
 import copy
 import json
@@ -6,16 +8,15 @@ from pathlib import Path
 
 from loguru import logger
 
-from mineru.cli.common import convert_pdf_bytes_to_bytes_by_pypdfium2, prepare_env, read_fn
-from mineru.data.data_reader_writer import FileBasedDataWriter
-from mineru.utils.draw_bbox import draw_layout_bbox, draw_span_bbox
-from mineru.utils.enum_class import MakeMode
-from mineru.backend.vlm.vlm_analyze import doc_analyze as vlm_doc_analyze
-from mineru.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
-from mineru.backend.pipeline.pipeline_middle_json_mkcontent import union_make as pipeline_union_make
-from mineru.backend.pipeline.model_json_to_middle_json import result_to_middle_json as pipeline_result_to_middle_json
-from mineru.backend.vlm.vlm_middle_json_mkcontent import union_make as vlm_union_make
-from mineru.utils.models_download_utils import auto_download_and_get_model_root_path
+from mineru_omni.cli.common import convert_pdf_bytes_to_bytes_by_pypdfium2, prepare_env, read_fn
+from mineru_omni.data.data_reader_writer import FileBasedDataWriter
+from mineru_omni.utils.draw_bbox import draw_layout_bbox, draw_span_bbox
+from mineru_omni.utils.enum_class import MakeMode
+from mineru_omni.backend.vlm.vlm_analyze import doc_analyze as vlm_doc_analyze
+from mineru_omni.backend.pipeline.pipeline_analyze import doc_analyze as pipeline_doc_analyze
+from mineru_omni.backend.pipeline.pipeline_middle_json_mkcontent import union_make as pipeline_union_make
+from mineru_omni.backend.pipeline.model_json_to_middle_json import result_to_middle_json as pipeline_result_to_middle_json
+from mineru_omni.backend.vlm.vlm_middle_json_mkcontent import union_make as vlm_union_make
 
 
 def do_parse(
@@ -236,10 +237,12 @@ if __name__ == '__main__':
     """如果您由于网络问题无法下载模型，可以设置环境变量MINERU_MODEL_SOURCE为modelscope使用免代理仓库下载模型"""
     # os.environ['MINERU_MODEL_SOURCE'] = "modelscope"
 
+    # os.environ['CUDA_VISIBLE_DEVICES'] = "3"  
+    # os.environ['MINERU_MODEL_SOURCE'] = "local"
+
     """Use pipeline mode if your environment does not support VLM"""
-    parse_doc(doc_path_list, output_dir, backend="pipeline")
 
     """To enable VLM mode, change the backend to 'vlm-xxx'"""
     # parse_doc(doc_path_list, output_dir, backend="vlm-transformers")  # more general.
     # parse_doc(doc_path_list, output_dir, backend="vlm-sglang-engine")  # faster(engine).
-    # parse_doc(doc_path_list, output_dir, backend="vlm-sglang-client", server_url="http://127.0.0.1:30000")  # faster(client).
+    parse_doc(doc_path_list, output_dir, backend="vlm-sglang-client", server_url="http://127.0.0.1:30001")  # faster(client).
