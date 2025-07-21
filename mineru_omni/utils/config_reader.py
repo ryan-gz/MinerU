@@ -11,7 +11,7 @@ except ImportError:
 
 
 # 定义配置文件名常量
-CONFIG_FILE_NAME = os.getenv('MINERU_TOOLS_CONFIG_JSON', 'mineru_omni.json')
+CONFIG_FILE_NAME = os.getenv('MINERU_TOOLS_CONFIG_JSON', '/home/cc099/MinerU/mineru_omni.json')
 
 
 def read_config():

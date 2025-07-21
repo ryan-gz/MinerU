@@ -161,7 +161,7 @@ def batch_image_analyze(
 
     if str(device).startswith('npu'):
         try:
-            import torch_npu
+            import torch_npu # type: ignore
             if torch_npu.npu.is_available():
                 torch_npu.npu.set_compile_mode(jit_compile=False)
         except Exception as e:

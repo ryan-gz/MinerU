@@ -3,6 +3,7 @@ sys.path.append('.')
 # Copyright (c) Opendatalab. All rights reserved.
 import copy
 import json
+import tqdm
 import os
 from pathlib import Path
 
@@ -200,7 +201,7 @@ def parse_doc(
         file_name_list = []
         pdf_bytes_list = []
         lang_list = []
-        for path in path_list:
+        for path in tqdm.tqdm(path_list):
             file_name = str(Path(path).stem)
             pdf_bytes = read_fn(path)
             file_name_list.append(file_name)
@@ -222,27 +223,38 @@ def parse_doc(
 
 
 if __name__ == '__main__':
+    """如果您由于网络问题无法下载模型，可以设置环境变量MINERU_MODEL_SOURCE为modelscope使用免代理仓库下载模型"""
+    os.environ['MINERU_MODEL_SOURCE'] = "modelscope"
+    # os.environ['CUDA_VISIBLE_DEVICES'] = "4" # TODO 不生效
+    os.environ['MINERU_MIN_BATCH_INFERENCE_SIZE'] = "128"  # Adjust batch size for inference, default is 128
+    # os.environ['MINERU_TOOLS_CONFIG_JSON'] = '/home/cc099/MinerU/mineru_omni.json' # TODO 不生效
+    # os.environ['MINERU_MODEL_SOURCE'] = "local" # TODO 不生效
     # args
     __dir__ = os.path.dirname(os.path.abspath(__file__))
-    pdf_files_dir = os.path.join(__dir__, "pdfs")
-    output_dir = os.path.join(__dir__, "output")
+    # pdf_files_dir = os.path.join(__dir__, "pdfs")
+    # pdf_files_dir = os.path.join(__dir__, "test")
+    pdf_files_dir = os.path.join(__dir__, "long_pdf")
+    output_dir = os.path.join(__dir__, "output_long_pdf")
     pdf_suffixes = [".pdf"]
-    image_suffixes = [".png", ".jpeg", ".jpg"]
+    image_suffixes = []
+    # image_suffixes = [".png", ".jpeg", ".jpg"]
 
-    doc_path_list = []
+    # doc_path_list = []
     for doc_path in Path(pdf_files_dir).glob('*'):
         if doc_path.suffix in pdf_suffixes + image_suffixes:
-            doc_path_list.append(doc_path)
+            # doc_path_list.append(doc_path)
+            # TODO 实测没有办法批处理，需要一个个喂进去
+            parse_doc([doc_path], output_dir, backend="pipeline", method='auto') 
 
-    """如果您由于网络问题无法下载模型，可以设置环境变量MINERU_MODEL_SOURCE为modelscope使用免代理仓库下载模型"""
-    # os.environ['MINERU_MODEL_SOURCE'] = "modelscope"
+    # print(doc_path_list)
 
-    # os.environ['CUDA_VISIBLE_DEVICES'] = "3"  
-    # os.environ['MINERU_MODEL_SOURCE'] = "local"
 
     """Use pipeline mode if your environment does not support VLM"""
 
     """To enable VLM mode, change the backend to 'vlm-xxx'"""
+    # parse_doc(doc_path_list, output_dir, backend="pipeline", method='txt')
+    # parse_doc(doc_path_list, output_dir, backend="pipeline", method='ocr')
+    # parse_doc(doc_path_list, output_dir, backend="pipeline", method='auto')
     # parse_doc(doc_path_list, output_dir, backend="vlm-transformers")  # more general.
     # parse_doc(doc_path_list, output_dir, backend="vlm-sglang-engine")  # faster(engine).
-    parse_doc(doc_path_list, output_dir, backend="vlm-sglang-client", server_url="http://127.0.0.1:30001")  # faster(client).
+    # parse_doc(doc_path_list, output_dir, backend="vlm-sglang-client", server_url="http://127.0.0.1:30001")  # faster(client).

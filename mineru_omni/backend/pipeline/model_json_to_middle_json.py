@@ -13,7 +13,7 @@ from mineru_omni.utils.block_sort import sort_blocks_by_bbox
 from mineru_omni.utils.boxbase import calculate_overlap_area_in_bbox1_area_ratio
 from mineru_omni.utils.cut_image import cut_image_and_table
 from mineru_omni.utils.enum_class import ContentType
-from mineru_omni.utils.llm_aided import llm_aided_title
+from mineru_omni.utils.llm_aided import llm_aided_title,llm_aided_title_omni
 from mineru_omni.utils.model_utils import clean_memory
 from mineru_omni.backend.pipeline.pipeline_magic_model import MagicModel
 from mineru_omni.utils.ocr_utils import OcrConfidence
@@ -228,7 +228,8 @@ def result_to_middle_json(model_list, images_list, pdf_doc, image_writer, lang=N
         if title_aided_config is not None:
             if title_aided_config.get('enable', False):
                 llm_aided_title_start_time = time.time()
-                llm_aided_title(middle_json["pdf_info"], title_aided_config)
+                # llm_aided_title(middle_json["pdf_info"], title_aided_config)
+                llm_aided_title_omni(middle_json["pdf_info"], title_aided_config)
                 logger.info(f'llm aided title time: {round(time.time() - llm_aided_title_start_time, 2)}')
 
     """清理内存"""
