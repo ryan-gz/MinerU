@@ -1,15 +1,17 @@
 import sys
 
 sys.path.append(".")
-# Copyright (c) Opendatalab. All rights reserved.
 import copy
 import json
-import tqdm
 import os
 from pathlib import Path
-
+from typing import List, Optional
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi.responses import JSONResponse
+import uvicorn
+import tempfile
 from loguru import logger
-
+import tqdm
 from mineru_omni.cli.common import (
     convert_pdf_bytes_to_bytes_by_pypdfium2,
     prepare_env,
@@ -32,28 +34,33 @@ from mineru_omni.backend.vlm.vlm_middle_json_mkcontent import (
     union_make as vlm_union_make,
 )
 
+os.environ["MINERU_MODEL_SOURCE"] = "modelscope"
+# FastAPI app instance
+app = FastAPI(title="Document Parsing API", description="API for parsing PDF documents using Mineru Omni")
 
+# Include the original do_parse function here (unchanged)
 def do_parse(
-    output_dir,  # Output directory for storing parsing results
-    pdf_file_names: list[str],  # List of PDF file names to be parsed
-    pdf_bytes_list: list[bytes],  # List of PDF bytes to be parsed
-    p_lang_list: list[str],  # List of languages for each PDF, default is 'ch' (Chinese)
-    backend="pipeline",  # The backend for parsing PDF, default is 'pipeline'
-    parse_method="auto",  # The method for parsing PDF, default is 'auto'
-    formula_enable=True,  # Enable formula parsing
-    table_enable=True,  # Enable table parsing
-    server_url=None,  # Server URL for vlm-sglang-client backend
-    f_draw_layout_bbox=True,  # Whether to draw layout bounding boxes
-    f_draw_span_bbox=True,  # Whether to draw span bounding boxes
-    f_dump_md=True,  # Whether to dump markdown files
-    f_dump_middle_json=True,  # Whether to dump middle JSON files
-    f_dump_model_output=True,  # Whether to dump model output files
-    f_dump_orig_pdf=True,  # Whether to dump original PDF files
-    f_dump_content_list=True,  # Whether to dump content list files
-    f_make_md_mode=MakeMode.MM_MD,  # The mode for making markdown content, default is MM_MD
-    start_page_id=0,  # Start page ID for parsing, default is 0
-    end_page_id=None,  # End page ID for parsing, default is None (parse all pages until the end of the document)
+    output_dir,
+    pdf_file_names: list[str],
+    pdf_bytes_list: list[bytes],
+    p_lang_list: list[str],
+    backend="pipeline",
+    parse_method="auto",
+    formula_enable=True,
+    table_enable=True,
+    server_url=None,
+    f_draw_layout_bbox=True,
+    f_draw_span_bbox=True,
+    f_dump_md=True,
+    f_dump_middle_json=True,
+    f_dump_model_output=True,
+    f_dump_orig_pdf=True,
+    f_dump_content_list=True,
+    f_make_md_mode=MakeMode.MM_MD,
+    start_page_id=0,
+    end_page_id=None,
 ):
+    # ... (The original do_parse function code, copied verbatim)
     if backend == "pipeline":
         for idx, pdf_bytes in enumerate(pdf_bytes_list):
             new_pdf_bytes = convert_pdf_bytes_to_bytes_by_pypdfium2(
@@ -224,112 +231,78 @@ def do_parse(
 
             logger.info(f"local output dir is {local_md_dir}")
 
-
-def parse_doc(
-    path_list: list[Path],
-    output_dir,
-    lang="ch",
-    backend="pipeline",
-    method="auto",
-    server_url=None,
-    start_page_id=0,
-    end_page_id=None,
+@app.post("/parse_doc", summary="Parse documents and generate output files")
+async def parse_doc_api(
+    files: List[UploadFile] = File(...),
+    output_dir: str = Form(...),
+    lang: str = Form(default="ch"),
+    backend: str = Form(default="pipeline"),
+    method: str = Form(default="auto"),
+    server_url: Optional[str] = Form(default=None),
+    start_page_id: int = Form(default=0),
+    end_page_id: Optional[int] = Form(default=None),
 ):
     """
-    Parameter description:
-    path_list: List of document paths to be parsed, can be PDF or image files.
-    output_dir: Output directory for storing parsing results.
-    lang: Language option, default is 'ch', optional values include['ch', 'ch_server', 'ch_lite', 'en', 'korean', 'japan', 'chinese_cht', 'ta', 'te', 'ka']。
-        Input the languages in the pdf (if known) to improve OCR accuracy.  Optional.
-        Adapted only for the case where the backend is set to "pipeline"
-    backend: the backend for parsing pdf:
-        pipeline: More general.
-        vlm-transformers: More general.
-        vlm-sglang-engine: Faster(engine).
-        vlm-sglang-client: Faster(client).
-        without method specified, pipeline will be used by default.
-    method: the method for parsing pdf:
-        auto: Automatically determine the method based on the file type.
-        txt: Use text extraction method.
-        ocr: Use OCR method for image-based PDFs.
-        Without method specified, 'auto' will be used by default.
-        Adapted only for the case where the backend is set to "pipeline".
-    server_url: When the backend is `sglang-client`, you need to specify the server_url, for example:`http://127.0.0.1:30000`
-    start_page_id: Start page ID for parsing, default is 0
-    end_page_id: End page ID for parsing, default is None (parse all pages until the end of the document)
+    API endpoint to parse documents (PDFs or images) and generate output files.
+
+    Parameters:
+    - files: List of uploaded files (PDFs or images).
+    - output_dir: Directory to store parsing results.
+    - lang: Language of the documents (default: 'ch'). Options: ['ch', 'ch_server', 'ch_lite', 'en', 'korean', 'japan', 'chinese_cht', 'ta', 'te', 'ka'].
+    - backend: Parsing backend (default: 'pipeline'). Options: ['pipeline', 'vlm-transformers', 'vlm-sglang-engine', 'vlm-sglang-client'].
+    - method: Parsing method (default: 'auto'). Options: ['auto', 'txt', 'ocr']. Only applicable for 'pipeline' backend.
+    - server_url: Server URL for 'vlm-sglang-client' backend (e.g., 'http://127.0.0.1:30000').
+    - start_page_id: Start page ID for parsing (default: 0).
+    - end_page_id: End page ID for parsing (default: None, parse until end).
+
+    Returns:
+    - JSON response with status and output directory information.
     """
     try:
-        file_name_list = []
-        pdf_bytes_list = []
-        lang_list = []
-        for path in tqdm.tqdm(path_list):
-            file_name = str(Path(path).stem)
-            pdf_bytes = read_fn(path)
-            file_name_list.append(file_name)
-            pdf_bytes_list.append(pdf_bytes)
-            lang_list.append(lang)
-        do_parse(
-            output_dir=output_dir,
-            pdf_file_names=file_name_list,
-            pdf_bytes_list=pdf_bytes_list,
-            p_lang_list=lang_list,
-            backend=backend,
-            parse_method=method,
-            server_url=server_url,
-            start_page_id=start_page_id,
-            end_page_id=end_page_id,
-        )
+        # Create a temporary directory to store uploaded files
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file_name_list = []
+            pdf_bytes_list = []
+            lang_list = []
+            path_list = []
+
+            # Save uploaded files to temporary directory
+            for file in files:
+                file_name = file.filename
+                temp_file_path = os.path.join(temp_dir, file_name)
+                with open(temp_file_path, "wb") as f:
+                    content = await file.read()
+                    f.write(content)
+                file_name_list.append(Path(file_name).stem)
+                pdf_bytes_list.append(content)
+                lang_list.append(lang)
+                path_list.append(Path(temp_file_path))
+
+            # Call the original parse_doc function
+            do_parse(
+                output_dir=output_dir,
+                pdf_file_names=file_name_list,
+                pdf_bytes_list=pdf_bytes_list,
+                p_lang_list=lang_list,
+                backend=backend,
+                parse_method=method,
+                server_url=server_url,
+                start_page_id=start_page_id,
+                end_page_id=end_page_id,
+            )
+
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "status": "success",
+                    "message": f"Documents parsed successfully. Results saved to {output_dir}",
+                    "output_dir": output_dir,
+                },
+            )
     except Exception as e:
         logger.exception(e)
+        raise HTTPException(status_code=500, detail=f"Error parsing documents: {str(e)}")
 
-
+# Run the FastAPI server
 if __name__ == "__main__":
-    os.environ["MINERU_MODEL_SOURCE"] = "modelscope"
-    parse_doc(
-        ["/home/cc099/MinerU/demo/pdfs/适配证书.pdf"],
-        output_dir="/home/cc099/MinerU/demo/output_mineru",
-        backend="pipeline",
-        method="auto",
-    )
-    parse_doc(
-        ["/home/cc099/MinerU/demo/pdfs/适配证书.pdf"],
-        output_dir="/home/cc099/MinerU/demo/output_mineru",
-        backend="pipeline",
-        method="auto",
-    )
-    """
-    os.environ["MINERU_MODEL_SOURCE"] = "modelscope"
-    # os.environ['CUDA_VISIBLE_DEVICES'] = "4" # TODO 不生效
-    os.environ["MINERU_MIN_BATCH_INFERENCE_SIZE"] = (
-        "128"  # Adjust batch size for inference, default is 128
-    )
-    # os.environ['MINERU_TOOLS_CONFIG_JSON'] = '/home/cc099/MinerU/mineru_omni.json' # TODO 不生效
-    # os.environ['MINERU_MODEL_SOURCE'] = "local" # TODO 不生效
-    # args
-    __dir__ = os.path.dirname(os.path.abspath(__file__))
-    # pdf_files_dir = os.path.join(__dir__, "pdfs")
-    # pdf_files_dir = os.path.join(__dir__, "test")
-    pdf_files_dir = os.path.join(__dir__, "test_database")
-    output_dir = os.path.join(__dir__, "output_test_database-qwen3-30b-llm-aided-revised20250721")
-    pdf_suffixes = [".pdf"]
-    image_suffixes = []
-    # image_suffixes = [".png", ".jpeg", ".jpg"]
-
-    # doc_path_list = []
-    for doc_path in Path(pdf_files_dir).glob("*"):
-        if doc_path.suffix in pdf_suffixes + image_suffixes:
-            # doc_path_list.append(doc_path)
-            # TODO 实测没有办法批处理，需要一个个喂进去
-            parse_doc([doc_path], output_dir, backend="pipeline", method="auto")
-
-    # print(doc_path_list)
-    """
-    """Use pipeline mode if your environment does not support VLM"""
-
-    """To enable VLM mode, change the backend to 'vlm-xxx'"""
-    # parse_doc(doc_path_list, output_dir, backend="pipeline", method='txt')
-    # parse_doc(doc_path_list, output_dir, backend="pipeline", method='ocr')
-    # parse_doc(doc_path_list, output_dir, backend="pipeline", method='auto')
-    # parse_doc(doc_path_list, output_dir, backend="vlm-transformers")  # more general.
-    # parse_doc(doc_path_list, output_dir, backend="vlm-sglang-engine")  # faster(engine).
-    # parse_doc(doc_path_list, output_dir, backend="vlm-sglang-client", server_url="http://127.0.0.1:30001")  # faster(client).
+    uvicorn.run(app, host="0.0.0.0", port=5991)

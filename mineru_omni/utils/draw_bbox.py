@@ -1,3 +1,4 @@
+import math
 import json
 from io import BytesIO
 
@@ -7,6 +8,40 @@ from reportlab.pdfgen import canvas
 
 from .enum_class import BlockType, ContentType
 
+def rotate_bbox(bbox, page_width, page_height, rotation):
+    """对边界框进行逆旋转变换以匹配页面旋转角度"""
+    x0, y0, x1, y1 = bbox
+    rad = math.radians(-rotation)  # 逆旋转（-rotation）
+    cos_val = math.cos(rad)
+    sin_val = math.sin(rad)
+    
+    # 计算页面中心作为旋转中心，这个旋转中心和旋转角度有关
+    if rotation % 90 == 0 and rotation % 180 != 0:
+        cx, cy = page_height / 2, page_width / 2
+    else:
+        cx, cy = page_width / 2, page_height / 2
+    
+    # 转换坐标：先平移到原点，旋转，再平移回页面
+    def transform_point(x, y):
+        x -= cx
+        y -= cy
+        new_x = x * cos_val - y * sin_val
+        new_y = x * sin_val + y * cos_val
+        return new_x + cx, new_y + cy
+    
+    # 转换边界框的四个角
+    corners = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+    transformed_corners = [transform_point(x, y) for x, y in corners]
+    
+    # 计算新边界框（最小外接矩形）
+    new_xs = [x for x, _ in transformed_corners]
+    new_ys = [y for _, y in transformed_corners]
+
+    if rotation % 90 == 0 and rotation % 180 != 0:
+        new_xs = [x - (page_height - page_width) / 2 for x, _ in transformed_corners]
+        new_ys = [y + (page_height - page_width) / 2 for _, y in transformed_corners]
+    return [min(new_xs), min(new_ys), max(new_xs), max(new_ys)]
+
 
 def draw_bbox_without_number(i, bbox_list, page, c, rgb_config, fill_config):
     new_rgb = [float(color) / 255 for color in rgb_config]
@@ -14,6 +49,10 @@ def draw_bbox_without_number(i, bbox_list, page, c, rgb_config, fill_config):
     page_width, page_height = page.cropbox[2], page.cropbox[3]
 
     for bbox in page_data:
+        # 如果页面有旋转，转换边界框坐标
+        if page.rotation != 0:
+            bbox = rotate_bbox(bbox, page_width, page_height, page.rotation)
+
         width = bbox[2] - bbox[0]
         height = bbox[3] - bbox[1]
         rect = [bbox[0], page_height - bbox[3], width, height]  # Define the rectangle
@@ -34,6 +73,10 @@ def draw_bbox_with_number(i, bbox_list, page, c, rgb_config, fill_config, draw_b
     page_width, page_height = float(page.cropbox[2]), float(page.cropbox[3])
 
     for j, bbox in enumerate(page_data):
+        # 如果页面有旋转，转换边界框坐标
+        if page.rotation != 0:
+            bbox = rotate_bbox(bbox, page_width, page_height, page.rotation)
+
         # 确保bbox的每个元素都是float
         x0, y0, x1, y1 = map(float, bbox)
         width = x1 - x0
@@ -46,10 +89,21 @@ def draw_bbox_with_number(i, bbox_list, page, c, rgb_config, fill_config, draw_b
             else:
                 c.setStrokeColorRGB(*new_rgb)
                 c.rect(rect[0], rect[1], rect[2], rect[3], stroke=1, fill=0)
-        c.setFillColorRGB(*new_rgb, 1.0)
-        c.setFontSize(size=10)
-        # 这里也要用float
-        c.drawString(x1 + 2, page_height - y0 - 10, str(j + 1))
+        
+        c.saveState()
+        if page.rotation != 0:
+            text_x, text_y = x1, page_height - y0
+            c.translate(text_x, text_y)
+            c.rotate(page.rotation)
+            c.setFillColorRGB(*new_rgb, 1.0)
+            if page.rotation % 180 == 0:
+                c.drawString(width, 0, str(j + 1))
+            else:
+                c.drawString(0, 0, str(j + 1))
+        else:
+            c.setFillColorRGB(*new_rgb, 1.0)
+            c.drawString(x1 + 2, page_height - y0 - height, str(j + 1))
+        c.restoreState()
 
     return c
 

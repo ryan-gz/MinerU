@@ -1,6 +1,7 @@
 # Copyright (c) Opendatalab. All rights reserved.
 import re
 import json
+import tqdm
 import json_repair
 from loguru import logger
 from openai import OpenAI
@@ -10,33 +11,41 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.pydantic_v1 import BaseModel, Field
 from typing import List, Dict, Any
 
-from mineru_omni.backend.pipeline.pipeline_middle_json_mkcontent import merge_para_with_text
+from mineru_omni.backend.pipeline.pipeline_middle_json_mkcontent import (
+    merge_para_with_text,
+)
 
 
 class DictOutputParser(BaseOutputParser):
     """
     A LangChain-compatible output parser that extracts all {...} dictionaries from a string.
-    """    
+    """
+
     def parse(self, text: str) -> List[Dict[str, Any]]:
         """
         Parse the input text and return a list of dictionaries.
-        
+
         Args:
             text (str): Input string containing {...} patterns
-            
+
         Returns:
             List[Dict[str, Any]]: List of parsed dictionaries
         """
-        pattern = r'\{.*?\}'
+        pattern = r"\{.*?\}"
         matches = re.search(pattern, text, re.DOTALL)
-        result = json_repair.loads(matches.group(0))      
-        return result
-    
+        if matches:
+            result = json_repair.loads(matches.group(0))
+            return result
+        else:
+            logger.warning("No valid JSON dictionary found in the input text.")
+            return None
+
+
+
     @property
     def _type(self) -> str:
         """Return the parser type for LangChain compatibility."""
         return "dict_output_parser"
-    
 
 PROMPT_TEMPLATE = """输入的内容是一篇文档中所有标题组成的字典，请根据以下指南优化标题的结果，使结果符合正常文档的层次结构：
 
@@ -95,51 +104,58 @@ def get_title_dict(page_info_list):
                 # 合并块中的文本
                 title_text = merge_para_with_text(block)
 
-                if 'line_avg_height' in block:
-                    line_avg_height = block['line_avg_height']
+                if "line_avg_height" in block:
+                    line_avg_height = block["line_avg_height"]
                 else:
-                # 否则，计算块中每行的行高，并取平均值
+                    # 否则，计算块中每行的行高，并取平均值
                     title_block_line_height_list = []
-                    for line in block['lines']:
-                        bbox = line['bbox']
+                    for line in block["lines"]:
+                        bbox = line["bbox"]
                         title_block_line_height_list.append(int(bbox[3] - bbox[1]))
                     if len(title_block_line_height_list) > 0:
-                        line_avg_height = sum(title_block_line_height_list) / len(title_block_line_height_list)
+                        line_avg_height = sum(title_block_line_height_list) / len(
+                            title_block_line_height_list
+                        )
                     else:
-                    # 如果块中没有行高信息，则取块的高度
-                        line_avg_height = int(block['bbox'][3] - block['bbox'][1])
+                        # 如果块中没有行高信息，则取块的高度
+                        line_avg_height = int(block["bbox"][3] - block["bbox"][1])
 
-                title_dict[f"{i}"] = [title_text, line_avg_height, int(page_info['page_idx']) + 1]
+                title_dict[f"{i}"] = [
+                    title_text,
+                    line_avg_height,
+                    int(page_info["page_idx"]) + 1,
+                ]
                 i += 1
     return title_dict, origin_title_list
+
 
 def split_dict(d, max_len):
     """
     将字典分割成多个小字典，确保每个小字典的 str() 长度不超过 max_len
-    
+
     Args:
         d (dict): 输入字典
         max_len (int): 每个小字典字符串表示的最大长度
-    
+
     Returns:
         list: 包含多个小字典的列表
     """
     result = []
     current_dict = {}
     current_len = 0
-    
+
     # 用于计算字典的字符串长度
     def get_dict_str_len(d):
         return len(str(d))
-    
+
     for key, value in d.items():
         # 尝试添加新键值对
         temp_dict = current_dict.copy()
         temp_dict[key] = value
-        
+
         # 检查添加后的长度
         temp_len = get_dict_str_len(temp_dict)
-        
+
         if temp_len <= max_len:
             # 如果长度符合要求，直接添加到当前字典
             current_dict = temp_dict
@@ -151,35 +167,51 @@ def split_dict(d, max_len):
             # 创建新字典只包含当前键值对
             current_dict = {key: value}
             current_len = get_dict_str_len(current_dict)
-    
+
     # 添加最后一个字典（如果不为空）
     if current_dict:
         result.append(current_dict)
-    
+
     return result
+
 
 def llm_aided_title_omni(page_info_list, title_aided_config):
     def infer_title(tmp_title_dict, chain, max_retries=3):
         retry_count = 0
         while retry_count < max_retries:
             try:
-                tmp_dict_completion = chain.invoke({
-                        "title_dict": tmp_title_dict
-                    })
-                # 如果生成的标题优化结果中包含"</think>"，则去掉"</think>"及其之前的内容
-                tmp_dict_completion = {int(k): int(v) for k, v in tmp_dict_completion.items()}
-                # 将生成的标题优化结果转换为字典
-                if len(tmp_dict_completion) == len(tmp_title_dict):
-                    return tmp_dict_completion
+                tmp_dict_completion = chain.invoke({"title_dict": tmp_title_dict})
+                if tmp_dict_completion:
+                    # 如果生成的标题优化结果中包含"</think>"，则去掉"</think>"及其之前的内容
+                    tmp_dict_completion = {
+                        int(k): int(v)
+                        for k, v in tmp_dict_completion.items()
+                        if str(k) in list(tmp_title_dict.keys())
+                    }
+                    # 将生成的标题优化结果转换为字典
+                    if len(tmp_dict_completion) == len(tmp_title_dict):
+                        return tmp_dict_completion
+                    else:
+                        logger.warning(
+                            f"The number of titles in the optimized result({len(tmp_dict_completion)}) is not equal to the number of titles in the input({len(tmp_title_dict)})."
+                        )
+                        retry_count += 1
                 else:
-                    logger.warning(
-                        "The number of titles in the optimized result is not equal to the number of titles in the input.")
+                    logger.warning("No title optimization result generated.")
                     retry_count += 1
             except Exception as e:
                 # 否则，记录警告信息，并增加重试次数
                 logger.exception(e)
                 retry_count += 1
-    
+        raise Exception("Failed to decode dict after maximum retries.")
+
+    # 2025-07-21 09:52:33 for prompt debug: save page_info_list, title_aided_config
+    # with open("/home/cc099/MinerU/demo/debug/page_info_list.json", "w") as f:
+    #     json.dump(page_info_list, f)
+    # with open("/home/cc099/MinerU/demo/debug/title_aided_config.json", "w") as f:
+    #     json.dump(title_aided_config, f)
+    # raise Exception("Debugging")
+
     llm = ChatOpenAI(
         model=title_aided_config["model"],
         api_key=title_aided_config["api_key"],
@@ -191,12 +223,12 @@ def llm_aided_title_omni(page_info_list, title_aided_config):
     prompt = ChatPromptTemplate.from_messages([("user", PROMPT_TEMPLATE)])
     parser = DictOutputParser()
     chain = prompt | llm | parser
-    title_dict,origin_title_list = get_title_dict(page_info_list)
-    max_retries = 5
+    title_dict, origin_title_list = get_title_dict(page_info_list)
+    max_retries = 3
     dict_completion = None
-    max_len = 1024*5  # 设置最大长度限制
+    max_len = 1024 * 10  # 设置最大长度限制
     s_title_dict_list = split_dict(title_dict, max_len)  # 将字典分割成多个小字典
-    for s_title_dict in s_title_dict_list:
+    for s_title_dict in tqdm.tqdm(s_title_dict_list):
         s_dict_completion = infer_title(s_title_dict, chain, max_retries)
         # 合并 s_dict_completion 到 dict_completion
         if dict_completion is None:
@@ -212,6 +244,11 @@ def llm_aided_title_omni(page_info_list, title_aided_config):
             for i, origin_title_block in enumerate(origin_title_list):
                 # 没有 return 而是直接通过修改
                 origin_title_block["level"] = int(dict_completion[i])
+        else:
+            logger.warning(
+                f"The number of titles in the optimized result({len(dict_completion)}) is not equal to the number of titles in the input({len(title_dict)})."
+            )
+
 
 
 def llm_aided_title(page_info_list, title_aided_config):
@@ -233,21 +270,27 @@ def llm_aided_title(page_info_list, title_aided_config):
                 # 合并块中的文本
                 title_text = merge_para_with_text(block)
 
-                if 'line_avg_height' in block:
-                    line_avg_height = block['line_avg_height']
+                if "line_avg_height" in block:
+                    line_avg_height = block["line_avg_height"]
                 else:
-                # 否则，计算块中每行的行高，并取平均值
+                    # 否则，计算块中每行的行高，并取平均值
                     title_block_line_height_list = []
-                    for line in block['lines']:
-                        bbox = line['bbox']
+                    for line in block["lines"]:
+                        bbox = line["bbox"]
                         title_block_line_height_list.append(int(bbox[3] - bbox[1]))
                     if len(title_block_line_height_list) > 0:
-                        line_avg_height = sum(title_block_line_height_list) / len(title_block_line_height_list)
+                        line_avg_height = sum(title_block_line_height_list) / len(
+                            title_block_line_height_list
+                        )
                     else:
-                    # 如果块中没有行高信息，则取块的高度
-                        line_avg_height = int(block['bbox'][3] - block['bbox'][1])
+                        # 如果块中没有行高信息，则取块的高度
+                        line_avg_height = int(block["bbox"][3] - block["bbox"][1])
 
-                title_dict[f"{i}"] = [title_text, line_avg_height, int(page_info['page_idx']) + 1]
+                title_dict[f"{i}"] = [
+                    title_text,
+                    line_avg_height,
+                    int(page_info["page_idx"]) + 1,
+                ]
                 i += 1
     # logger.info(f"Title list: {title_dict}")
 
@@ -301,8 +344,7 @@ Corrected title list:
         try:
             completion = client.chat.completions.create(
                 model=title_aided_config["model"],
-                messages=[
-                    {'role': 'user', 'content': title_optimize_prompt}],
+                messages=[{"role": "user", "content": title_optimize_prompt}],
                 temperature=0.7,
                 stream=True,
             )
@@ -316,7 +358,7 @@ Corrected title list:
             if "</think>" in content:
                 idx = content.index("</think>") + len("</think>")
                 content = content[idx:].strip()
-            dict_completion = json_repair.loads(content) # 使用 json_repair 修复字符串
+            dict_completion = json_repair.loads(content)  # 使用 json_repair 修复字符串
             # 如果生成的标题优化结果中包含"</think>"，则去掉"</think>"及其之前的内容
             dict_completion = {int(k): int(v) for k, v in dict_completion.items()}
 
@@ -330,7 +372,8 @@ Corrected title list:
             # 如果生成的标题优化结果中的标题数量和输入的标题数量一致，则将生成的标题优化结果应用到原始标题列表中
             else:
                 logger.warning(
-                    "The number of titles in the optimized result is not equal to the number of titles in the input.")
+                    "The number of titles in the optimized result is not equal to the number of titles in the input."
+                )
                 retry_count += 1
         except Exception as e:
             # 否则，记录警告信息，并增加重试次数
@@ -341,3 +384,11 @@ Corrected title list:
         # 如果发生异常，记录异常信息，并增加重试次数
         logger.error("Failed to decode dict after maximum retries.")
     # 如果达到最大重试次数后仍未成功，则记录错误信息
+
+
+if __name__ == "__main__":
+    with open("/home/cc099/MinerU/demo/debug/page_info_list.json", "r") as f:
+        page_info_list = json.load(f)
+    with open("/home/cc099/MinerU/demo/debug/title_aided_config.json", "r") as f:
+        title_aided_config = json.load(f)
+    llm_aided_title_omni(page_info_list, title_aided_config)
