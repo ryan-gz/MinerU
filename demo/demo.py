@@ -285,19 +285,19 @@ def parse_doc(
 
 if __name__ == "__main__":
     os.environ["MINERU_MODEL_SOURCE"] = "modelscope"
+    # parse_doc(
+    #     ["/home/cc099/MinerU/demo/pdfs/适配证书.pdf"],
+    #     output_dir="/home/cc099/MinerU/demo/output_mineru",
+    #     backend="pipeline",
+    #     method="auto",
+    # )
     parse_doc(
-        ["/home/cc099/MinerU/demo/pdfs/适配证书.pdf"],
-        output_dir="/home/cc099/MinerU/demo/output_mineru",
+        ["/home/star/zg/MinerU/demo/output/masked_output5.pdf"],
+        output_dir="/home/star/zg/MinerU/demo/output",
         backend="pipeline",
         method="auto",
     )
-    parse_doc(
-        ["/home/cc099/MinerU/demo/pdfs/适配证书.pdf"],
-        output_dir="/home/cc099/MinerU/demo/output_mineru",
-        backend="pipeline",
-        method="auto",
-    )
-    """
+    '''
     os.environ["MINERU_MODEL_SOURCE"] = "modelscope"
     # os.environ['CUDA_VISIBLE_DEVICES'] = "4" # TODO 不生效
     os.environ["MINERU_MIN_BATCH_INFERENCE_SIZE"] = (
@@ -307,23 +307,27 @@ if __name__ == "__main__":
     # os.environ['MINERU_MODEL_SOURCE'] = "local" # TODO 不生效
     # args
     __dir__ = os.path.dirname(os.path.abspath(__file__))
-    # pdf_files_dir = os.path.join(__dir__, "pdfs")
+    pdf_files_dir = os.path.join(__dir__, "pdfs")
     # pdf_files_dir = os.path.join(__dir__, "test")
-    pdf_files_dir = os.path.join(__dir__, "test_database")
-    output_dir = os.path.join(__dir__, "output_test_database-qwen3-30b-llm-aided-revised20250721")
+    # pdf_files_dir = os.path.join(__dir__, "test_database")
+    # output_dir = os.path.join(__dir__, "output_test_database-qwen3-30b-llm-aided-revised20250721")
+    output_dir = os.path.join(__dir__, "output")
     pdf_suffixes = [".pdf"]
     image_suffixes = []
     # image_suffixes = [".png", ".jpeg", ".jpg"]
-
-    # doc_path_list = []
+    
+    doc_path_list = []
     for doc_path in Path(pdf_files_dir).glob("*"):
         if doc_path.suffix in pdf_suffixes + image_suffixes:
-            # doc_path_list.append(doc_path)
+            doc_path_list.append(doc_path)
+    # parse_doc(doc_path_list, output_dir, backend="vlm-transformers") 
+    # parse_doc(doc_path_list, output_dir, backend="pipeline") 
             # TODO 实测没有办法批处理，需要一个个喂进去
             parse_doc([doc_path], output_dir, backend="pipeline", method="auto")
+            parse_doc()
 
     # print(doc_path_list)
-    """
+
     """Use pipeline mode if your environment does not support VLM"""
 
     """To enable VLM mode, change the backend to 'vlm-xxx'"""
@@ -333,3 +337,4 @@ if __name__ == "__main__":
     # parse_doc(doc_path_list, output_dir, backend="vlm-transformers")  # more general.
     # parse_doc(doc_path_list, output_dir, backend="vlm-sglang-engine")  # faster(engine).
     # parse_doc(doc_path_list, output_dir, backend="vlm-sglang-client", server_url="http://127.0.0.1:30001")  # faster(client).
+    '''

@@ -19,7 +19,6 @@ from .sglang_client_predictor import SglangClientPredictor
 hf_loaded = False
 try:
     from .hf_predictor import HuggingfacePredictor
-
     hf_loaded = True
 except ImportError as e:
     logger.warning("hf is not installed. If you are not using transformers, you can ignore this warning.")
