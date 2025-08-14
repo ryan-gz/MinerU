@@ -29,12 +29,9 @@ def compare_and_mask_images(
         print("Error: One or both images could not be loaded.")
         return None
 
-    # 检查图片尺寸是否一致，如果不一致，调整大小
+    # 检查图片尺寸是否一致，直接return None
     if img1.shape != img2.shape:
-        height = min(img1.shape[0], img2.shape[0])
-        width = min(img1.shape[1], img2.shape[1])
-        img1 = cv2.resize(img1, (width, height))
-        img2 = cv2.resize(img2, (width, height))
+        return None
 
     # 获取图片尺寸
     height, width, _ = img1.shape
@@ -147,6 +144,13 @@ def main(pdf_path, output_pdf_path, temp_dir="temp_images"):
     print(f"是否应用了掩码: {any(masked_flags)}")
 
 if __name__ == "__main__":
-    pdf_path = "/home/star/zg/chat_doc_0630_online_cp/knowledge_base/保密知识库/layout/测试文档5/测试文档5/auto/测试文档5_origin.pdf"  # 替换为你的 PDF 文件路径
-    output_pdf_path = "/home/star/zg/MinerU/demo/output/masked_output5.pdf"  # 输出 PDF 路径
-    main(pdf_path, output_pdf_path)
+    import glob
+    for pdf_path in glob.glob("/home/star/zg/MinerU/demo/bm/*.pdf"):
+        print(pdf_path)
+        output_pdf_path = f"/home/star/zg/MinerU/demo/output_bm/{os.path.basename(pdf_path)[:-4]}_mask.pdf"  # 输出 PDF 路径
+        main(pdf_path, output_pdf_path)
+
+
+    # pdf_path = "/home/star/zg/chat_doc_0630_online_cp/knowledge_base/保密知识库/layout/测试文档5/测试文档5/auto/测试文档52_origin.pdf"  # 替换为你的 PDF 文件路径
+    # output_pdf_path = "/home/star/zg/MinerU/demo/output/masked_output5.pdf"  # 输出 PDF 路径
+    # main(pdf_path, output_pdf_path)
