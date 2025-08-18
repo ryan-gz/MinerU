@@ -59,6 +59,7 @@ def do_parse(
     f_make_md_mode=MakeMode.MM_MD,
     start_page_id=0,
     end_page_id=None,
+    is_ppt=False
 ):
     # ... (The original do_parse function code, copied verbatim)
     if backend == "pipeline":
@@ -75,6 +76,7 @@ def do_parse(
                 parse_method=parse_method,
                 formula_enable=formula_enable,
                 table_enable=table_enable,
+                is_ppt=is_ppt,
             )
         )
 
@@ -241,6 +243,7 @@ async def parse_doc_api(
     server_url: Optional[str] = Form(default=None),
     start_page_id: int = Form(default=0),
     end_page_id: Optional[int] = Form(default=None),
+    is_ppt: bool = Form(default=False),
 ):
     """
     API endpoint to parse documents (PDFs or images) and generate output files.
@@ -289,6 +292,7 @@ async def parse_doc_api(
                 server_url=server_url,
                 start_page_id=start_page_id,
                 end_page_id=end_page_id,
+                is_ppt=is_ppt
             )
 
             return JSONResponse(

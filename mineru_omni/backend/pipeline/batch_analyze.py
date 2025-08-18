@@ -15,12 +15,13 @@ MFR_BASE_BATCH_SIZE = 16
 
 
 class BatchAnalyze:
-    def __init__(self, model_manager, batch_ratio: int, formula_enable, table_enable, enable_ocr_det_batch: bool = True):
+    def __init__(self, model_manager, batch_ratio: int, formula_enable, table_enable, enable_ocr_det_batch: bool = True,is_ppt: bool = False):
         self.batch_ratio = batch_ratio
         self.formula_enable = get_formula_enable(formula_enable)
         self.table_enable = get_table_enable(table_enable)
         self.model_manager = model_manager
         self.enable_ocr_det_batch = enable_ocr_det_batch
+        self.is_ppt=is_ppt
 
     def __call__(self, images_with_extra_info: list) -> list:
         if len(images_with_extra_info) == 0:
@@ -32,6 +33,7 @@ class BatchAnalyze:
             lang=None,
             formula_enable=self.formula_enable,
             table_enable=self.table_enable,
+            is_ppt=self.is_ppt
         )
         atom_model_manager = AtomModelSingleton()
 

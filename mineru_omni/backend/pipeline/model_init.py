@@ -134,6 +134,7 @@ class MineruPipelineModel:
         self.apply_table = self.table_config.get('enable', True)
         self.lang = kwargs.get('lang', None)
         self.device = kwargs.get('device', 'cpu')
+        self.is_ppt = kwargs.get('is_ppt', False)
         logger.info(
             'DocAnalysis init, this may take some times......'
         )
@@ -151,7 +152,6 @@ class MineruPipelineModel:
 
             # 初始化公式解析模型
             mfr_weight_dir = os.path.join(auto_download_and_get_model_root_path(ModelPath.unimernet_small), ModelPath.unimernet_small)
-
             self.mfr_model = atom_model_manager.get_atom_model(
                 atom_model_name=AtomicModel.MFR,
                 mfr_weight_dir=mfr_weight_dir,
@@ -159,13 +159,23 @@ class MineruPipelineModel:
             )
 
         # 初始化layout模型
-        self.layout_model = atom_model_manager.get_atom_model(
-            atom_model_name=AtomicModel.Layout,
-            doclayout_yolo_weights=str(
-                os.path.join(auto_download_and_get_model_root_path(ModelPath.doclayout_yolo), ModelPath.doclayout_yolo)
-            ),
-            device=self.device,
-        )
+        if self.is_ppt:
+            self.layout_model = atom_model_manager.get_atom_model(
+                atom_model_name=AtomicModel.Layout,
+                doclayout_yolo_weights=str(
+                    os.path.join(auto_download_and_get_model_root_path(ModelPath.doclayout_yolo), ModelPath.doclayout_yolo)
+                ),
+                device=self.device,
+            )
+        else:
+            self.layout_model = atom_model_manager.get_atom_model(
+                atom_model_name=AtomicModel.Layout,
+                doclayout_yolo_weights=str(
+                    os.path.join(auto_download_and_get_model_root_path(ModelPath.doclayout_yolo_ppt), ModelPath.doclayout_yolo)
+                ),
+                device=self.device,
+            )
+
         # 初始化ocr
         self.ocr_model = atom_model_manager.get_atom_model(
             atom_model_name=AtomicModel.OCR,
