@@ -59,7 +59,8 @@ def do_parse(
     f_make_md_mode=MakeMode.MM_MD,
     start_page_id=0,
     end_page_id=None,
-    is_ppt=False
+    is_ppt=False,
+    md_relative_path=None
 ):
     # ... (The original do_parse function code, copied verbatim)
     if backend == "pipeline":
@@ -126,6 +127,7 @@ def do_parse(
 
             if f_dump_md:
                 image_dir = str(os.path.basename(local_image_dir))
+                image_dir = f"{os.path.dirname(md_relative_path)}/{image_dir}"
                 md_content_str = pipeline_union_make(
                     pdf_info, f_make_md_mode, image_dir
                 )
@@ -136,6 +138,7 @@ def do_parse(
 
             if f_dump_content_list:
                 image_dir = str(os.path.basename(local_image_dir))
+                image_dir = f"{os.path.dirname(md_relative_path)}/{image_dir}"
                 content_list = pipeline_union_make(
                     pdf_info, MakeMode.CONTENT_LIST, image_dir
                 )
@@ -244,6 +247,7 @@ async def parse_doc_api(
     start_page_id: int = Form(default=0),
     end_page_id: Optional[int] = Form(default=None),
     is_ppt: bool = Form(default=False),
+    md_relative_path: str = Form(default="."),
 ):
     """
     API endpoint to parse documents (PDFs or images) and generate output files.
@@ -292,7 +296,8 @@ async def parse_doc_api(
                 server_url=server_url,
                 start_page_id=start_page_id,
                 end_page_id=end_page_id,
-                is_ppt=is_ppt
+                is_ppt=is_ppt,
+                md_relative_path=md_relative_path
             )
 
             return JSONResponse(

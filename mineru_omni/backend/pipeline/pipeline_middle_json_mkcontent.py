@@ -86,7 +86,8 @@ def make_blocks_to_markdown(paras_of_layout,
                                 if span['type'] == ContentType.TABLE:
                                     # if processed by table model
                                     if span.get('html', ''):
-                                        para_text += f"\n{span['html']}\n"
+                                        # para_text += f"\n{span['html']}\n"
+                                        para_text += f"\n{span['html'].replace('<html><body>','').replace('</body></html>','')}\n"
                                     elif span.get('image_path', ''):
                                         para_text += f"![]({img_buket_path}/{span['image_path']})"
                 for block in para_block['blocks']:  # 3rd.拼table_footnote

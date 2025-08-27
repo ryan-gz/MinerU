@@ -292,8 +292,8 @@ if __name__ == "__main__":
     #     method="auto",
     # )
     parse_doc(
-        ["/home/star/zg/MinerU/demo/output/masked_output5.pdf"],
-        output_dir="/home/star/zg/MinerU/demo/output",
+        ["/home/star/zg/MinerU/demo/pdfs/demo1.pdf"],
+        output_dir="/home/star/zg/MinerU/demo",
         backend="pipeline",
         method="auto",
     )
