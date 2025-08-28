@@ -4,6 +4,7 @@ sys.path.append(".")
 import copy
 import json
 import os
+from urllib.parse import urlencode
 from pathlib import Path
 from typing import List, Optional
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
@@ -25,7 +26,7 @@ from mineru_omni.backend.pipeline.pipeline_analyze import (
     doc_analyze as pipeline_doc_analyze,
 )
 from mineru_omni.backend.pipeline.pipeline_middle_json_mkcontent import (
-    union_make as pipeline_union_make,
+    union_make_web as pipeline_union_make,
 )
 from mineru_omni.backend.pipeline.model_json_to_middle_json import (
     result_to_middle_json as pipeline_result_to_middle_json,
@@ -128,8 +129,9 @@ def do_parse(
             if f_dump_md:
                 image_dir = str(os.path.basename(local_image_dir))
                 image_dir = f"{os.path.dirname(md_relative_path)}/{image_dir}"
+                figure_url = f"http://localhost:23852/knowledge_base/download_img?{image_dir}"
                 md_content_str = pipeline_union_make(
-                    pdf_info, f_make_md_mode, image_dir
+                    pdf_info, f_make_md_mode, figure_url
                 )
                 md_writer.write_string(
                     f"{pdf_file_name}.md",
@@ -139,8 +141,9 @@ def do_parse(
             if f_dump_content_list:
                 image_dir = str(os.path.basename(local_image_dir))
                 image_dir = f"{os.path.dirname(md_relative_path)}/{image_dir}"
+                figure_url = f"http://localhost:23852/knowledge_base/download_img?{image_dir}"
                 content_list = pipeline_union_make(
-                    pdf_info, MakeMode.CONTENT_LIST, image_dir
+                    pdf_info, MakeMode.CONTENT_LIST, figure_url
                 )
                 md_writer.write_string(
                     f"{pdf_file_name}_content_list.json",

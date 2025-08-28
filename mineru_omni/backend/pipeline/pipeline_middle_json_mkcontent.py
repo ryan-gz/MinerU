@@ -1,5 +1,7 @@
+import os
 import re
 from loguru import logger
+from urllib.parse import urlencode
 
 from mineru_omni.utils.config_reader import get_latex_delimiter_config
 from mineru_omni.backend.pipeline.para_split import ListLineTag
@@ -90,6 +92,105 @@ def make_blocks_to_markdown(paras_of_layout,
                                         para_text += f"\n{span['html'].replace('<html><body>','').replace('</body></html>','')}\n"
                                     elif span.get('image_path', ''):
                                         para_text += f"![]({img_buket_path}/{span['image_path']})"
+                for block in para_block['blocks']:  # 3rd.拼table_footnote
+                    if block['type'] == BlockType.TABLE_FOOTNOTE:
+                        para_text += '\n' + merge_para_with_text(block) + '  '
+
+        if para_text.strip() == '':
+            continue
+        else:
+            # page_markdown.append(para_text.strip() + '  ')
+            page_markdown.append(para_text.strip())
+
+    return page_markdown
+
+
+
+def make_blocks_to_markdown_web(paras_of_layout,
+                                      mode,
+                                      img_buket_path='',
+                                      ):
+    page_markdown = []
+    figure_url_template, image_dir = img_buket_path.split('download_img?')
+    figure_url_template += 'download_img?'
+    for para_block in paras_of_layout:
+        para_text = ''
+        para_type = para_block['type']
+        if para_type in [BlockType.TEXT, BlockType.LIST, BlockType.INDEX]:
+            para_text = merge_para_with_text(para_block)
+        elif para_type == BlockType.TITLE:
+            title_level = get_title_level(para_block)
+            para_text = f'{"#" * title_level} {merge_para_with_text(para_block)}'
+        elif para_type == BlockType.INTERLINE_EQUATION:
+            if len(para_block['lines']) == 0 or len(para_block['lines'][0]['spans']) == 0:
+                continue
+            if para_block['lines'][0]['spans'][0].get('content', ''):
+                para_text = merge_para_with_text(para_block)
+            else:
+                img_name = para_block['lines'][0]['spans'][0]['image_path']
+                filepath = str(os.path.join(image_dir, img_name))
+                figure_url_params = urlencode({"filepath": filepath, "filename": img_name})
+                para_text += f"![]({figure_url_template}{figure_url_params})"
+
+        elif para_type == BlockType.IMAGE:
+            if mode == MakeMode.NLP_MD:
+                continue
+            elif mode == MakeMode.MM_MD:
+                # 检测是否存在图片脚注
+                has_image_footnote = any(block['type'] == BlockType.IMAGE_FOOTNOTE for block in para_block['blocks'])
+                # 如果存在图片脚注，则将图片脚注拼接到图片正文后面
+                if has_image_footnote:
+                    for block in para_block['blocks']:  # 1st.拼image_caption
+                        if block['type'] == BlockType.IMAGE_CAPTION:
+                            para_text += merge_para_with_text(block) + '  \n'
+                    for block in para_block['blocks']:  # 2nd.拼image_body
+                        if block['type'] == BlockType.IMAGE_BODY:
+                            for line in block['lines']:
+                                for span in line['spans']:
+                                    if span['type'] == ContentType.IMAGE:
+                                        if span.get('image_path', ''):
+                                            img_name = span['image_path']
+                                            filepath = str(os.path.join(image_dir, img_name))
+                                            figure_url_params = urlencode({"filepath": filepath, "filename": img_name})
+                                            para_text += f"![]({figure_url_template}{figure_url_params})"
+                    for block in para_block['blocks']:  # 3rd.拼image_footnote
+                        if block['type'] == BlockType.IMAGE_FOOTNOTE:
+                            para_text += '  \n' + merge_para_with_text(block)
+                else:
+                    for block in para_block['blocks']:  # 1st.拼image_body
+                        if block['type'] == BlockType.IMAGE_BODY:
+                            for line in block['lines']:
+                                for span in line['spans']:
+                                    if span['type'] == ContentType.IMAGE:
+                                        if span.get('image_path', ''):
+                                            img_name = span['image_path']
+                                            filepath = str(os.path.join(image_dir, img_name))
+                                            figure_url_params = urlencode({"filepath": filepath, "filename": img_name})
+                                            para_text += f"![]({figure_url_template}{figure_url_params})"
+                    for block in para_block['blocks']:  # 2nd.拼image_caption
+                        if block['type'] == BlockType.IMAGE_CAPTION:
+                            para_text += '  \n' + merge_para_with_text(block)
+        elif para_type == BlockType.TABLE:
+            if mode == MakeMode.NLP_MD:
+                continue
+            elif mode == MakeMode.MM_MD:
+                for block in para_block['blocks']:  # 1st.拼table_caption
+                    if block['type'] == BlockType.TABLE_CAPTION:
+                        para_text += merge_para_with_text(block) + '  \n'
+                for block in para_block['blocks']:  # 2nd.拼table_body
+                    if block['type'] == BlockType.TABLE_BODY:
+                        for line in block['lines']:
+                            for span in line['spans']:
+                                if span['type'] == ContentType.TABLE:
+                                    # if processed by table model
+                                    if span.get('html', ''):
+                                        # para_text += f"\n{span['html']}\n"
+                                        para_text += f"\n{span['html'].replace('<html><body>','').replace('</body></html>','')}\n"
+                                    elif span.get('image_path', ''):
+                                        img_name = span['image_path']
+                                        filepath = str(os.path.join(image_dir, img_name))
+                                        figure_url_params = urlencode({"filepath": filepath, "filename": img_name})
+                                        para_text += f"![]({figure_url_template}{figure_url_params})"
                 for block in para_block['blocks']:  # 3rd.拼table_footnote
                     if block['type'] == BlockType.TABLE_FOOTNOTE:
                         para_text += '\n' + merge_para_with_text(block) + '  '
@@ -338,6 +439,35 @@ def union_make(pdf_info_dict: list,
             continue
         if make_mode in [MakeMode.MM_MD, MakeMode.NLP_MD]:
             page_markdown = make_blocks_to_markdown(paras_of_layout, make_mode, img_buket_path)
+            output_content.extend(page_markdown)
+        elif make_mode == MakeMode.CONTENT_LIST:
+            for para_block in paras_of_layout:
+                # para_content = make_blocks_to_content_list(para_block, img_buket_path, page_idx)
+                para_content = make_blocks_to_content_list_omni(para_block, img_buket_path, page_idx, page_info['page_size'])
+                if para_content:
+                    output_content.append(para_content)
+
+    if make_mode in [MakeMode.MM_MD, MakeMode.NLP_MD]:
+        return '\n\n'.join(output_content)
+    elif make_mode == MakeMode.CONTENT_LIST:
+        return output_content
+    else:
+        logger.error(f"Unsupported make mode: {make_mode}")
+        return None
+
+
+def union_make_web(pdf_info_dict: list,
+               make_mode: str,
+               img_buket_path: str = '',
+               ):
+    output_content = []
+    for page_info in pdf_info_dict:
+        paras_of_layout = page_info.get('para_blocks')
+        page_idx = page_info.get('page_idx')
+        if not paras_of_layout:
+            continue
+        if make_mode in [MakeMode.MM_MD, MakeMode.NLP_MD]:
+            page_markdown = make_blocks_to_markdown_web(paras_of_layout, make_mode, img_buket_path)
             output_content.extend(page_markdown)
         elif make_mode == MakeMode.CONTENT_LIST:
             for para_block in paras_of_layout:
