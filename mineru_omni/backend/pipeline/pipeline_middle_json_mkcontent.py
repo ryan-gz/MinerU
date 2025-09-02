@@ -60,6 +60,9 @@ def make_blocks_to_markdown(paras_of_layout,
                                     if span['type'] == ContentType.IMAGE:
                                         if span.get('image_path', ''):
                                             para_text += f"![]({img_buket_path}/{span['image_path']})"
+                                        # 加入识别的流程图或其他图生文数据
+                                        if span.get('content', ''):
+                                            para_text += f"!{span['content']})"
                     for block in para_block['blocks']:  # 3rd.拼image_footnote
                         if block['type'] == BlockType.IMAGE_FOOTNOTE:
                             para_text += '  \n' + merge_para_with_text(block)
@@ -71,6 +74,9 @@ def make_blocks_to_markdown(paras_of_layout,
                                     if span['type'] == ContentType.IMAGE:
                                         if span.get('image_path', ''):
                                             para_text += f"![]({img_buket_path}/{span['image_path']})"
+                                        # 加入识别的流程图或其他图生文数据
+                                        if span.get('content', ''):
+                                            para_text += f"!{span['content']})"
                     for block in para_block['blocks']:  # 2nd.拼image_caption
                         if block['type'] == BlockType.IMAGE_CAPTION:
                             para_text += '  \n' + merge_para_with_text(block)
@@ -153,6 +159,9 @@ def make_blocks_to_markdown_web(paras_of_layout,
                                             filepath = str(os.path.join(image_dir, img_name))
                                             figure_url_params = urlencode({"filepath": filepath, "filename": img_name})
                                             para_text += f"![]({figure_url_template}{figure_url_params})"
+                                        if span.get('content', ''):
+                                            para_text += '\n' + span['content']
+                                            
                     for block in para_block['blocks']:  # 3rd.拼image_footnote
                         if block['type'] == BlockType.IMAGE_FOOTNOTE:
                             para_text += '  \n' + merge_para_with_text(block)
@@ -167,6 +176,9 @@ def make_blocks_to_markdown_web(paras_of_layout,
                                             filepath = str(os.path.join(image_dir, img_name))
                                             figure_url_params = urlencode({"filepath": filepath, "filename": img_name})
                                             para_text += f"![]({figure_url_template}{figure_url_params})"
+                                        if span.get('content', ''):
+                                            para_text += '\n' + span['content']
+                                        
                     for block in para_block['blocks']:  # 2nd.拼image_caption
                         if block['type'] == BlockType.IMAGE_CAPTION:
                             para_text += '  \n' + merge_para_with_text(block)
@@ -401,6 +413,9 @@ def make_blocks_to_content_list_omni(para_block, img_buket_path, page_idx, page_
                         if span['type'] == ContentType.IMAGE:
                             if span.get('image_path', ''):
                                 para_content['img_path'] = f"{img_buket_path}/{span['image_path']}"
+                            # 加入文生图内容
+                            if span.get('content', ''):
+                                para_content['content'] = span['content']
             if block['type'] == BlockType.IMAGE_CAPTION:
                 para_content[BlockType.IMAGE_CAPTION].append(merge_para_with_text(block))
             if block['type'] == BlockType.IMAGE_FOOTNOTE:

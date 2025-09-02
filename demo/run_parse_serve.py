@@ -29,7 +29,7 @@ from mineru_omni.backend.pipeline.pipeline_middle_json_mkcontent import (
     union_make_web as pipeline_union_make,
 )
 from mineru_omni.backend.pipeline.model_json_to_middle_json import (
-    result_to_middle_json as pipeline_result_to_middle_json,
+    result_to_middle_json_omni as pipeline_result_to_middle_json,
 )
 from mineru_omni.backend.vlm.vlm_middle_json_mkcontent import (
     union_make as vlm_union_make,
@@ -115,16 +115,16 @@ def do_parse(
                     pdf_info, pdf_bytes, local_md_dir, f"{pdf_file_name}_layout.pdf"
                 )
 
-            if f_draw_span_bbox:
-                draw_span_bbox(
-                    pdf_info, pdf_bytes, local_md_dir, f"{pdf_file_name}_span.pdf"
-                )
+            # if f_draw_span_bbox:
+            #     draw_span_bbox(
+            #         pdf_info, pdf_bytes, local_md_dir, f"{pdf_file_name}_span.pdf"
+            #     )
 
-            if f_dump_orig_pdf:
-                md_writer.write(
-                    f"{pdf_file_name}_origin.pdf",
-                    pdf_bytes,
-                )
+            # if f_dump_orig_pdf:
+            #     md_writer.write(
+            #         f"{pdf_file_name}_origin.pdf",
+            #         pdf_bytes,
+            #     )
 
             if f_dump_md:
                 image_dir = str(os.path.basename(local_image_dir))
