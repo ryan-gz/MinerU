@@ -33,10 +33,10 @@ from mineru_omni.utils.hash_utils import str_md5
 
 # resnet
 IMG_SIZE = 224
-CLASS_MODEL = "/home/star/zg/omniknow/stash/flowchart/weights/classify/flowchart_classifier_epoch_1_acc_93.37.pth"
+CLASS_MODEL = "/mnt/ddata2/user/zhangga/omniknow/stash/flowchart/weights/classify/flowchart_classifier_epoch_1_acc_93.37.pth"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # vlm
-VLLM_ENDPOINT = "http://localhost:8533/v1/chat/completions"
+VLLM_ENDPOINT = "http://192.168.5.210:8533/v1/chat/completions"
 VLM_MODEL_NAME = "mermaid"
 
 

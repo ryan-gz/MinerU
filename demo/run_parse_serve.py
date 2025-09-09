@@ -129,7 +129,7 @@ def do_parse(
             if f_dump_md:
                 image_dir = str(os.path.basename(local_image_dir))
                 image_dir = f"{os.path.dirname(md_relative_path)}/{image_dir}"
-                figure_url = f"http://localhost:23852/knowledge_base/download_img?{image_dir}"
+                figure_url = f"https://ai.czy3d.com/ai-kms-api/knowledge_base/download_img?{image_dir}"
                 md_content_str = pipeline_union_make(
                     pdf_info, f_make_md_mode, figure_url
                 )
