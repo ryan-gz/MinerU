@@ -287,8 +287,8 @@ def result_to_middle_json_omni(model_list, images_list, pdf_doc, image_writer, l
                                 if span.get('image_path'):
                                     # tomo: 使用微调的 resnet18n 做二分类
                                     img_path = os.path.join(image_writer._parent_dir,span['image_path'])
-                                    is_flowchart = predict_classify(filepath=img_path, model_path=CLASS_MODEL)
-                                    
+                                    # is_flowchart = predict_classify(filepath=img_path, model_path=CLASS_MODEL)
+                                    is_flowchart = False # 210 断了直接干掉
                                     if is_flowchart:
                                         # tomo: 使用微调的 qwenvl2.5-3b 实现 img2mermaid
                                         resp = process_image(image_path=img_path, vlm_endpoint=VLLM_ENDPOINT, model=VLM_MODEL_NAME)

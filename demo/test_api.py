@@ -5,12 +5,12 @@ url = "http://localhost:5991/parse_doc"
 
 # 准备上传的文件（假设有两个 PDF 文件）
 files = [
-    ("files", ("demo1.pdf", open("/home/star/zg/MinerU/demo/pdfs/demo1.pdf", "rb"), "application/pdf")),
+    ("files", ("00985202-01.pdf", open("/mnt/ddata2/user/zhangga/downloads/DeepSeek-OCR-main/inputs/00985202-01.pdf", "rb"), "application/pdf")),
 ]
 
 # 准备表单数据
 data = {
-    "output_dir": "/home/star/zg/MinerU/demo/output",  # 输出目录
+    "output_dir": "/mnt/ddata2/user/zhangga/MinerU/demo/outputs",  # 输出目录
     "lang": "ch",                    # 文档语言
     "backend": "pipeline",           # 解析后端
     "method": "auto",                # 解析方法
