@@ -1,0 +1,40 @@
+# 使用官方推荐的基础镜像，包含 CUDA 和 sglang 环境
+FROM lmsysorg/sglang:v0.4.8.post1-cu126
+
+# 设置环境变量，防止 Python 生成 .pyc 文件，并设置无缓冲输出
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+# 设置模型源为 modelscope (国内下载更快)，如果客户服务器在海外可改为 huggingface
+ENV MINERU_MODEL_SOURCE=modelscope
+
+# 安装必要的系统库 (libgl1 用于 OpenCV)
+RUN apt-get update && apt-get install -y \
+    libgl1 \
+    libglib2.0-0 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制当前项目的所有代码到镜像中
+# 包含 demo/run_parse_serve.py 等文件
+COPY . /app
+
+# 安装项目依赖
+# 1. 安装 MinerU 本身 (使用 -e .[all] 安装当前目录源码，确保包含所有功能)
+# 2. 安装 API 服务所需的额外依赖 (fastapi, uvicorn)
+RUN python3 -m pip install --no-cache-dir -U pip && \
+    python3 -m pip install --no-cache-dir -e .[all] --break-system-packages && \
+    python3 -m pip install --no-cache-dir fastapi uvicorn python-multipart --break-system-packages
+
+# 预下载模型（可选）
+# 如果希望镜像包含所有模型（体积较大，约 10GB+），取消注释下面这行：
+# RUN mineru-models-download -s modelscope -m all
+
+# 暴露服务端口
+EXPOSE 5991
+
+# 启动服务
+# 使用 python 直接运行脚本
+CMD ["python3", "demo/run_parse_serve.py"]
